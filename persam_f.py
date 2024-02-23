@@ -21,7 +21,10 @@ def get_arguments():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--data', type=str, default='./data')
-    parser.add_argument('--outdir', type=str, default='persam_f')
+    parser.add_argument('--image_input', type=str, default='./input/Images/')
+    parser.add_argument('--mask_input', type=str, default='./input/Masks/')
+    parser.add_argument('--outdir', type=str, default='./output/')
+    parser.add_argument('--project', type=str, default='Notenrollen')
     parser.add_argument('--ckpt', type=str, default='./sam_vit_h_4b8939.pth')
     parser.add_argument('--sam_type', type=str, default='vit_h')
 
@@ -39,15 +42,26 @@ def main():
     args = get_arguments()
     print("Args:", args)
 
-    images_path = args.data + '/Images/'
-    masks_path = args.data + '/Annotations/'
-    output_path = './outputs/' + args.outdir
+    # images_path = args.data + '/Images/'
+    # masks_path = args.data + '/Annotations/'
+    images_path = args.image_input
+    masks_path = args.mask_input
 
-    if not os.path.exists('./outputs/'):
-        os.mkdir('./outputs/')
+    # output_path = './outputs/' + args.outdir
+    output_path = args.outdir + "/" + args.project + "/Persam_f/"
+
+    if not os.path.exists(output_path):
+        os.mkdir(output_path)
+
+    chkpt = os.path.join(args.data + args.ckpt)
+
+    if os.path.isfile(chkpt):
+        print("Found Checkpoint.")
+    else:
+        print("Checkpoint not found.") 
     
     for obj_name in os.listdir(images_path):
-        if ".DS" not in obj_name:
+        if ".DS" not in obj_name: #add condition that obj_name needs to be a folder
             persam_f(args, obj_name, images_path, masks_path, output_path)
 
 

@@ -19,11 +19,14 @@ def get_arguments():
     
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--data', type=str, default='./data')
-    parser.add_argument('--outdir', type=str, default='persam')
+    parser.add_argument('--data', type=str, default='./data/')
+    parser.add_argument('--image_input', type=str, default='./input/Images/')
+    parser.add_argument('--mask_input', type=str, default='./input/Masks/')
+    parser.add_argument('--outdir', type=str, default='.\output')
+    parser.add_argument('--project', type=str, default='Notenrollen')
     parser.add_argument('--ckpt', type=str, default='sam_vit_h_4b8939.pth')
     parser.add_argument('--ref_idx', type=str, default='00')
-    parser.add_argument('--sam_type', type=str, default='vit_h')
+    # parser.add_argument('--sam_type', type=str, default='vit_h')
     
     args = parser.parse_args()
     return args
@@ -34,17 +37,28 @@ def main():
     args = get_arguments()
     print("Args:", args)
 
-    images_path = args.data + '/Images/'
-    masks_path = args.data + '/Annotations/'
-    output_path = './outputs/' + args.outdir
+    # images_path = args.data + '/Images/'
+    # masks_path = args.data + '/Annotations/'
+    images_path = args.image_input
+    masks_path = args.mask_input
 
-    if not os.path.exists('./outputs/'):
-        os.mkdir('./outputs/')
-    
+    output_path = args.outdir + "/" + args.project + "/Persam/"
+
+    if not os.path.exists(output_path):
+        os.mkdir(output_path)
+
+    chkpt = os.path.join(args.data + args.ckpt)
+
+    if os.path.isfile(chkpt):
+        print("Found Checkpoint.")
+    else:
+        print("Checkpoint not found.")    
+
     for obj_name in os.listdir(images_path):
-        if ".DS" not in obj_name:
+        if ".DS" not in obj_name: #add condition that obj_name needs to be a folder
             persam(args, obj_name, images_path, masks_path, output_path)
 
+            
 
 def persam(args, obj_name, images_path, masks_path, output_path):
 
@@ -67,13 +81,16 @@ def persam(args, obj_name, images_path, masks_path, output_path):
     
 
     print("======> Load SAM" )
-    if args.sam_type == 'vit_h':
-        sam_type, sam_ckpt = 'vit_h', 'sam_vit_h_4b8939.pth'
-        sam = sam_model_registry[sam_type](checkpoint=sam_ckpt).cuda()
-    elif args.sam_type == 'vit_t':
-        sam_type, sam_ckpt = 'vit_t', 'weights/mobile_sam.pt'
+    # if args.sam_type == 'vit_h' and args.ckpt == 'sam_vit_h_4b8939.pth':
+    if args.ckpt == 'sam_vit_h_4b8939.pth':
+        # sam_type, sam_ckpt = 'vit_h', 'weights/sam_vit_h_4b8939.pth'
+        # sam = sam_model_registry[sam_type](checkpoint=sam_ckpt).cuda()
+        sam = sam_model_registry['vit_h'](checkpoint=f'weights/{args.ckpt}').cuda()
+    # elif args.sam_type == 'vit_t':
+    elif args.ckpt == 'mobile_sam.pt':
+        # sam_type, sam_ckpt = 'vit_t', 'weights/mobile_sam.pt'
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        sam = sam_model_registry[sam_type](checkpoint=sam_ckpt).to(device=device)
+        sam = sam_model_registry['vit_t'](args.ckpt).to(device=device)
         sam.eval()
 
     predictor = SamPredictor(sam)

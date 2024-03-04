@@ -16,22 +16,22 @@ from per_segment_anything import sam_model_registry, SamPredictor
 
 
 
-def get_arguments():
+def parse_args():
     
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--data', type=str, default='./data')
     parser.add_argument('--image_input', type=str, default='./input/Images/')
     parser.add_argument('--mask_input', type=str, default='./input/Masks/')
-    parser.add_argument('--outdir', type=str, default='./output/')
+    parser.add_argument('--output', type=str, default='./output')
     parser.add_argument('--project', type=str, default='Notenrollen')
-    parser.add_argument('--ckpt', type=str, default='./sam_vit_h_4b8939.pth')
+    parser.add_argument('--ckpt', type=str, default='sam_vit_h_4b8939.pth')
     parser.add_argument('--sam_type', type=str, default='vit_h')
+    parser.add_argument('--ref_idx', type=str, default='00')
 
     parser.add_argument('--lr', type=float, default=1e-3) 
     parser.add_argument('--train_epoch', type=int, default=1000)
     parser.add_argument('--log_epoch', type=int, default=200)
-    parser.add_argument('--ref_idx', type=str, default='00')
     
     args = parser.parse_args()
     return args
@@ -39,19 +39,20 @@ def get_arguments():
 
 def main():
 
-    args = get_arguments()
+    # args = get_arguments()
     print("Args:", args)
 
     # images_path = args.data + '/Images/'
     # masks_path = args.data + '/Annotations/'
-    images_path = args.image_input
-    masks_path = args.mask_input
+    # images_path = args.image_input
+    # masks_path = args.mask_input
 
     # output_path = './outputs/' + args.outdir
-    output_path = args.outdir + "/" + args.project + "/Persam_f/"
+    # output_path = args.outdir + "/" + args.project + "/Persam_f/"
+    # output_path = args.output
 
-    if not os.path.exists(output_path):
-        os.mkdir(output_path)
+    if not os.path.exists(args.output):
+        os.mkdir(args.output)
 
     chkpt = os.path.join(args.data + args.ckpt)
 
@@ -59,23 +60,26 @@ def main():
         print("Found Checkpoint.")
     else:
         print("Checkpoint not found.") 
+        #add error and break in case checkpoint not found
     
-    for obj_name in os.listdir(images_path):
-        if ".DS" not in obj_name: #add condition that obj_name needs to be a folder
-            persam_f(args, obj_name, images_path, masks_path, output_path)
+    # for obj_name in os.listdir(images_path):
+    #     if ".DS" not in obj_name: #add condition that obj_name needs to be a folder
+    #         persam_f(args, obj_name, images_path, masks_path, output_path)
+        
+    persam_f(args)
 
-
-def persam_f(args, obj_name, images_path, masks_path, output_path):
+def persam_f(args):
     
-    print("\n------------> Segment " + obj_name)
+    # print("\n------------> Segment " + obj_name)
+    print(f"\n------------> Segmenting {args.project}")
     
     # Path preparation
-    ref_image_path = os.path.join(images_path, obj_name, args.ref_idx + '.jpg')
-    ref_mask_path = os.path.join(masks_path, obj_name, args.ref_idx + '.png')
-    test_images_path = os.path.join(images_path, obj_name)
+    ref_image_path = os.path.join(args.image_input, args.ref_idx + '.jpg')
+    ref_mask_path = os.path.join(args.mask_input, args.ref_idx + '.png')
+    # test_images_path = os.path.join(args.image_input, obj_name)
 
-    output_path = os.path.join(output_path, obj_name)
-    os.makedirs(output_path, exist_ok=True)
+    args.output = os.path.join(args.output)
+    os.makedirs(args.output, exist_ok=True)
 
     # Load images and masks
     ref_image = cv2.imread(ref_image_path)
@@ -89,9 +93,12 @@ def persam_f(args, obj_name, images_path, masks_path, output_path):
 
     
     print("======> Load SAM" )
-    if args.sam_type == 'vit_h':
-        sam_type, sam_ckpt = 'vit_h', 'sam_vit_h_4b8939.pth'
-        sam = sam_model_registry[sam_type](checkpoint=sam_ckpt).cuda()
+    print(f'args.ckpt = {args.ckpt}')
+    # if args.sam_type == 'vit_h':
+    if args.ckpt == 'sam_vit_h_4b8939.pth':
+        # sam_type, sam_ckpt = 'vit_h', 'sam_vit_h_4b8939.pth'
+        # sam = sam_model_registry[sam_type](checkpoint=sam_ckpt).cuda()
+        sam = sam_model_registry['vit_h'](checkpoint=f'weights/{args.ckpt}').cuda()
     elif args.sam_type == 'vit_t':
         sam_type, sam_ckpt = 'vit_t', 'weights/mobile_sam.pt'
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -179,11 +186,11 @@ def persam_f(args, obj_name, images_path, masks_path, output_path):
     print('======> Mask weights:\n', weights_np)
 
     print('======> Start Testing')
-    for test_idx in tqdm(range(len(os.listdir(test_images_path)))):
+    for test_idx in tqdm(range(len(os.listdir(args.image_input)))):
 
         # Load test image
         test_idx = '%02d' % test_idx
-        test_image_path = test_images_path + '/' + test_idx + '.jpg'
+        test_image_path = args.image_input + '/' + test_idx + '.jpg'
         test_image = cv2.imread(test_image_path)
         test_image = cv2.cvtColor(test_image, cv2.COLOR_BGR2RGB)
 
@@ -258,14 +265,14 @@ def persam_f(args, obj_name, images_path, masks_path, output_path):
         show_points(topk_xy, topk_label, plt.gca())
         plt.title(f"Mask {best_idx}", fontsize=18)
         plt.axis('off')
-        vis_mask_output_path = os.path.join(output_path, f'vis_mask_{test_idx}.jpg')
+        vis_mask_output_path = os.path.join(args.output, f'vis_mask_{test_idx}.jpg')
         with open(vis_mask_output_path, 'wb') as outfile:
             plt.savefig(outfile, format='jpg')
 
         final_mask = masks[best_idx]
         mask_colors = np.zeros((final_mask.shape[0], final_mask.shape[1], 3), dtype=np.uint8)
         mask_colors[final_mask, :] = np.array([[0, 0, 128]])
-        mask_output_path = os.path.join(output_path, test_idx + '.png')
+        mask_output_path = os.path.join(args.output, test_idx + '.png')
         cv2.imwrite(mask_output_path, mask_colors)
 
 
@@ -335,4 +342,5 @@ def calculate_sigmoid_focal_loss(inputs, targets, num_masks = 1, alpha: float = 
 
 
 if __name__ == '__main__':
+    args = parse_args()
     main()

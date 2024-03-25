@@ -19,85 +19,46 @@ def parse_args():
     
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-d', '--data', type=str, default='./data/')
-    parser.add_argument('-w', '--working_directory', type=str, required=True, help='Path to the working directory with inputs and outpus.')
-    parser.add_argument('-ma', '--manufacturer', type=str, required=False, help='The piano roll manufacturer. This argument is for better sorting while testing')
-    parser.add_argument('-t', '--target', type=str, required=True, help='The target that should be segmented. This is for sorting during the test phase.')
-    # parser.add_argument('-i', '--image_input', type=str, default='./input/Images/')
-    parser.add_argument('--mask_input', type=str, default='./input/Masks/')
-    # parser.add_argument('--output', type=str, default='./output')
-    parser.add_argument('--project', type=str, default='Notenrollen')
-    parser.add_argument('--ckpt', type=str, default='sam_vit_h_4b8939.pth')
-    parser.add_argument('--sam_type', type=str, default='vit_h')
-    parser.add_argument('--reference_mask', type=str, default='00')
+    parser.add_argument('-dd', '--data_directory', type=str, default='./data/')
+    parser.add_argument('-io', '--input_output_directory', type=str, required=True, help='Path to the working directory with inputs and outpus.')
+    parser.add_argument('-ma', '--manufacturer', type=str, required=False, help='The piano roll manufacturer.')
+    parser.add_argument('-t', '--target', type=str, required=True, help='The target that should be segmented.')
+    parser.add_argument('-i', '--input', type=str, required=True, help='The file name of the picture and mask files (without extention) to be used as reference input. Picture needs to be JPG, Mask needs to be PNG in their respective folders.')
+    parser.add_argument('-m', '--mode', type=str, required=True, default='box', help='The mode that FastSAM used to create the mask. Needed to find the right folder.')
+    parser.add_argument('-c', '--ckpt', type=str, required=False, default='sam_vit_h_4b8939.pth', help='Needed if another checkpoint shall be used.')
     
     args = parser.parse_args()
     return args
 
-
 def main():
 
-    # args = get_arguments()
     print("Args:", args)
 
-    # add a way to put images in the folder into an array to feed 
-
-    # images_path = args.data + '/Images/'
-    # masks_path = args.data + '/Annotations/'
-    # images_path = args.image_input
-    # masks_path = args.mask_input
-
-    # output_path = args.output + "/" + args.project + "/Persam/"
-    # output_path = args.output
-
-    # if not os.path.exists(output_path):
-    #     os.mkdir(output_path)
-
     #path preparation
-    output_path = f'{args.working_directory}/{args.manufacturer}/Output/{args.target}/PerSAM'
-    ref_mask_path = f'{args.working_directory}/{args.manufacturer}/Input/{args.input_image}.jpg'
+    input_path = f'{args.input_output_directory}/{args.manufacturer}/Input'
+    fastsam_input_path = f'{args.input_output_directory}/{args.manufacturer}/Outputs/{args.target}/FastSAM results'
+    output_path = f'{args.input_output_directory}/{args.manufacturer}/Outputs/{args.target}/PerSAM results/input_{args.input}'
 
     if not os.path.exists(output_path):
-        os.mkdir(output_path)
+        os.makedirs(output_path)
 
-    chkpt = os.path.join(args.data + args.ckpt)
+    chkpt = os.path.join(args.data_directory + args.ckpt)
 
     if os.path.isfile(chkpt):
         print("Found Checkpoint.")
     else:
         print("Checkpoint not found.")    
         #add error and break in case checkpoint not found
-
-    # for obj_name in os.listdir(images_path):
-    #     if ".DS" not in obj_name: #add condition that obj_name needs to be a folder
-    #         persam(args, obj_name, images_path, masks_path, output_path)
         
-    persam(args, output_path)
+    persam(input_path, fastsam_input_path, output_path)
 
-            
+def persam(input_path, fastsam_input_path, output_path):
 
-# def persam(args, obj_name, images_path, masks_path, output_path):
-def persam(args, output_path):
-
-    # print("\n------------> Segment " + obj_name)
-    # print("\n------------> Segment " + obj_name)
-    
-    # # Path preparation
-    # ref_image_path = os.path.join(images_path, obj_name, args.ref_idx + '.jpg')
-    # ref_mask_path = os.path.join(masks_path, obj_name, args.ref_idx + '.png')
-    # test_images_path = os.path.join(images_path, obj_name)
-
-    # output_path = os.path.join(output_path, obj_name)
-
-    print(f"\n------------> Segmenting {args.project}")
+    print(f"\n------------> Segmenting {args.manufacturer} from FastSAM input {args.input} in {args.mode}-prompt mode.")
     
     # Path preparation
-    ref_image_path = os.path.join(args.image_input, args.ref_idx + '.jpg')
-    ref_mask_path = os.path.join(args.mask_input, args.ref_idx + '.png')
-    # test_images_path = os.path.join(images_path)
-
-    # output_path = os.path.join(output_path)
-    # os.makedirs(output_path, exist_ok=True)
+    ref_image_path = f"{input_path}/{args.input}.jpg"
+    ref_mask_path = f"{fastsam_input_path}/{args.mode}/Masks/{args.input}.png"
     os.makedirs(output_path, exist_ok=True)
 
     # Load images and masks
@@ -108,15 +69,12 @@ def persam(args, output_path):
     ref_mask = cv2.cvtColor(ref_mask, cv2.COLOR_BGR2RGB)
     
 
-    print("======> Load SAM" )
-    # if args.sam_type == 'vit_h' and args.ckpt == 'sam_vit_h_4b8939.pth':
+    print(f"\n======> Loading SAM" )
     if args.ckpt == 'sam_vit_h_4b8939.pth':
-        # sam_type, sam_ckpt = 'vit_h', 'weights/sam_vit_h_4b8939.pth'
-        # sam = sam_model_registry[sam_type](checkpoint=sam_ckpt).cuda()
+        print(f"Using vit_h checkpoint: {args.ckpt}")
         sam = sam_model_registry['vit_h'](checkpoint=f'weights/{args.ckpt}').cuda()
-    # elif args.sam_type == 'vit_t':
     elif args.ckpt == 'mobile_sam.pt':
-        # sam_type, sam_ckpt = 'vit_t', 'weights/mobile_sam.pt'
+        print(f"Using vit_t checkpoint: {args.ckpt}")
         device = "cuda" if torch.cuda.is_available() else "cpu"
         sam = sam_model_registry['vit_t'](args.ckpt).to(device=device)
         sam.eval()
@@ -139,13 +97,11 @@ def persam(args, output_path):
 
 
     print('======> Start Testing')
-    # for test_idx in tqdm(range(len(os.listdir(test_images_path)))):
-    for test_idx in tqdm(range(len(os.listdir(args.image_input)))):
+    for test_image in tqdm(os.listdir(input_path)):
     
         # Load test image
-        test_idx = '%02d' % test_idx
-        # test_image_path = test_images_path + '/' + test_idx + '.jpg'
-        test_image_path = args.image_input + '/' + test_idx + '.jpg'
+        test_image_path = f"{input_path}/{test_image}"
+        test_image_name = test_image.strip('.jpg')
         test_image = cv2.imread(test_image_path)
         test_image = cv2.cvtColor(test_image, cv2.COLOR_BGR2RGB)
 
@@ -216,14 +172,14 @@ def persam(args, output_path):
         show_points(topk_xy, topk_label, plt.gca())
         plt.title(f"Mask {best_idx}", fontsize=18)
         plt.axis('off')
-        vis_mask_output_path = os.path.join(output_path, f'vis_mask_{test_idx}.jpg')
+        vis_mask_output_path = os.path.join(output_path, f'vis_mask_{test_image_name}.jpg')
         with open(vis_mask_output_path, 'wb') as outfile:
             plt.savefig(outfile, format='jpg')
 
         final_mask = masks[best_idx]
         mask_colors = np.zeros((final_mask.shape[0], final_mask.shape[1], 3), dtype=np.uint8)
         mask_colors[final_mask, :] = np.array([[0, 0, 128]])
-        mask_output_path = os.path.join(output_path, test_idx + '.png')
+        mask_output_path = os.path.join(output_path, test_image_name + '.png')
         cv2.imwrite(mask_output_path, mask_colors)
 
 

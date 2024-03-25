@@ -1,0 +1,23 @@
+[mXp-ID_Manufacturer Name]/
+  |-- Input/
+    |--[mXp-ID_suffix].jpg 
+  |-- Outputs/
+    |-- [target]/                     #object on the music roll to be segmented
+      |-- FastSAM results/
+        |-- [mode]/                   #method used: box or points
+          |-- Images/                 #Images mask embedded in image with mask on top for human verification
+            |-- [mXp-ID_suffix].jpg
+          |-- Masks/                  #Masks for use by PerSAM
+            |-- [mXp-ID_suffix].png  
+      |-- PerSAM results
+        |-- input_[Input ID]          #ID of the picture and FastSAM-mask that have been used for genereating the PerSAM results
+          |-- Images                  #PerSAM mask embedded in image with mask on top for human verification
+            |-- [mxp-ID_suffix].png     
+          |-- Masks                   #PerSAM mask result
+            |-- [mXp-ID_suffix].jpg   
+      |-- PerSAM_f results
+        |-- input_[Input ID]           #ID of the picture and FastSAM-mask that have been used for genereating the PerSAM results
+          |-- Images                   #PerSAM mask embedded in image with mask on top for human verification
+            |-- [mxp-ID_suffix].png     
+          |-- Masks                    #PerSAM mask result
+            |-- [mXp-ID_suffix].jpg   
